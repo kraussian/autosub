@@ -1,6 +1,8 @@
-# Temporary WAV and SRT files
+# Temporary WAV, MP3, MP4 and SRT files
 *.wav
 *.srt
+*.mp3
+*.mp4
 
 # VS Code environment files
 *.code-workspace

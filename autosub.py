@@ -5,10 +5,8 @@ import re
 import ffmpeg
 from   faster_whisper import WhisperModel
 import argparse
-import random
-import numpy as np
-import pydub
-from   collections import Counter
+import pytubefix  # Install with: pip install -U pytubefix
+from   pytubefix.cli import on_progress
 from   typing import Iterator, TextIO
 
 # Function: Extract audio from video file and save to .WAV
@@ -87,23 +85,42 @@ def shorten_long_duration(input_dict:dict) -> dict:
         print(f"Shortened length: {input_dict.get("start")} --> {input_dict.get("end")} ({length_duration}) {input_dict.get("text")}")
     return input_dict
 
+def get_youtube_video(url:str) -> str:
+    # Barack Obama 2004 DNC Speech: https://www.youtube.com/watch?v=ueMNqdB1QIE
+    # Teddy Roosevelt 1912 Speech: https://www.youtube.com/watch?v=uhlzdjPGxrs
+    if "youtube" in url.replace(".",""):
+        yt = pytubefix.YouTube(url)#, on_progress_callback=on_progress)
+        print(f"Downloading Youtube video: {yt.title}")
+
+        ys = yt.streams.get_highest_resolution()
+        outfile = f"{yt.title}.mp4"
+        filepath = ys.download(filename=outfile)
+    else:
+        print(f"URL {url} is not a valid YouTube video")
+        outfile = ""
+    return outfile
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog='autosub.py',
         description='AutoSub automatically extracts subtitles from video or audio files using OpenAI Whisper',
     )
-    parser.add_argument('filename', help="Path and name of the video file to extract from")
+    parser.add_argument('filename', help="Path and name of the video file to extract from, or URL of YouTube video")
     parser.add_argument('-l', '--language', help="Override language of video file, e.g. en, ja, ko, zh")
     parser.add_argument('-c', '--chunks', help="Override number of random chunks to use for detecting language")
     parser.add_argument('-t', '--translate', help="Automatically translate subtitles to English", action='store_true')
     args = parser.parse_args()
 
     filename = args.filename
-    if not os.path.exists(filename):
-        print("ERROR: File not found")
-        exit()
+    if "http" in filename:
+        print("Attempting to download YouTube video")
+        filename = get_youtube_video(filename)
     else:
-        print(f"Processing video: {os.path.basename(filename)}")
+        if not os.path.exists(filename):
+            print("ERROR: File not found")
+            exit()
+        else:
+            print(f"Processing video: {os.path.basename(filename)}")
 
     audio_file = extract_audio(filename)
     # NOTE: Available Whisper models:
