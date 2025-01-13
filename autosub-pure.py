@@ -180,6 +180,5 @@ if __name__ == "__main__":
 # NOTE: ffmpeg needs to be installed on the system first
 # On Windows, install with: choco install ffmpeg
 
-# NOTE: Install required modules with:
-# pip install -U openai-whisper ffmpeg-python
-# pip install -U torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+# NOTE: torch needs to be in installed
+# pip install -U torch torchaudio --index-url https://download.pytorch.org/whl/cu124

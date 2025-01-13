@@ -2,11 +2,10 @@
 print("Importing modules")
 import os
 import re
-import ffmpeg
-from   faster_whisper import WhisperModel
+import ffmpeg  # Install with: pip install -U ffmpeg-python
+from   faster_whisper import WhisperModel  # Install with: pip install faster-whisper
 import argparse
 import pytubefix  # Install with: pip install -U pytubefix
-from   pytubefix.cli import on_progress
 from   typing import Iterator, TextIO
 
 # Function: Extract audio from video file and save to .WAV
@@ -140,34 +139,6 @@ if __name__ == "__main__":
     if args.translate:
         options['task'] = 'translate'
 
-    """
-    import silero_vad
-    vad_model = silero_vad.load_silero_vad()
-    wav = silero_vad.read_audio(audio_file)
-    # threshold (default float=0.5): Speech threshold. Silero VAD outputs speech probabilities for each audio chunk,
-    # probabilities ABOVE this value are considered as SPEECH. It is better to tune this
-    # parameter for each dataset separately, but "lazy" 0.5 is pretty good for most datasets.
-    # neg_threshold (default float=None): Silence threshold for determining the end of speech. If a probability is lower
-    # than neg_threshold, it is always considered silence. Values higher than neg_threshold
-    # are only considered speech if the previous sample was classified as speech; otherwise,
-    # they are treated as silence. This parameter helps refine the detection of speech
-    # transitions, ensuring smoother segment boundaries.
-    # min_speech_duration_ms (default int=0): Final speech chunks shorter min_speech_duration_ms are thrown out.
-    # max_speech_duration_s (default float=float("inf")): Maximum duration of speech chunks in seconds. Chunks longer
-    # than max_speech_duration_s will be split at the timestamp of the last silence that
-    # lasts more than 100ms (if any), to prevent aggressive cutting. Otherwise, they will be
-    # split aggressively just before max_speech_duration_s.
-    # min_silence_duration_ms (default int=2000): In the end of each speech chunk wait for min_silence_duration_ms before separating it
-    # speech_pad_ms (default int=400): Final speech chunks are padded by speech_pad_ms each side
-    speech_timestamps = silero_vad.get_speech_timestamps(
-        audio=wav,
-        model=vad_model,
-        return_seconds=True,  # Return speech timestamps in seconds (default is samples)
-        threshold=0.5,
-        neg_threshold=0.3,
-    )
-    """
-
     print("Extracting subtitles")
     segments, info = model.transcribe(
         audio=audio_file,
@@ -211,6 +182,5 @@ if __name__ == "__main__":
 # NOTE: ffmpeg needs to be installed on the system first
 # On Windows, install with: choco install ffmpeg
 
-# NOTE: Install required modules with:
-# pip install -U openai-whisper ffmpeg-python
-# pip install -U torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+# NOTE: torch needs to be in installed
+# pip install -U torch torchaudio --index-url https://download.pytorch.org/whl/cu124
