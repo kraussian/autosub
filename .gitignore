@@ -1,3 +1,10 @@
+# Temporary WAV and SRT files
+*.wav
+*.srt
+
+# VS Code environment files
+*.code-workspace
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
