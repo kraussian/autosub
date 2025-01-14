@@ -1,6 +1,7 @@
 # Import modules
 print("Importing modules")
 import os
+import shutil
 import re
 import ffmpeg  # Install with: pip install -U ffmpeg-python
 from   faster_whisper import WhisperModel  # Install with: pip install faster-whisper
@@ -108,6 +109,7 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--language', help="Override language of video file, e.g. en, ja, ko, zh")
     parser.add_argument('-c', '--chunks', help="Override number of random chunks to use for detecting language")
     parser.add_argument('-t', '--translate', help="Automatically translate subtitles to English", action='store_true')
+    parser.add_argument('-k', '--keep', help="Keep WAV file created during process", action='store_true')
     args = parser.parse_args()
 
     filename = args.filename
@@ -136,6 +138,7 @@ if __name__ == "__main__":
     if args.language:
         options['language'] = args.language
 
+    # Check if user wants English translation instead of pure transcription
     if args.translate:
         options['task'] = 'translate'
 
@@ -178,6 +181,15 @@ if __name__ == "__main__":
     with open(srt_file, "w", encoding="utf-8") as srt:
         write_srt(list_transcribe, file=srt)
     print(f"Wrote subtitle file to: {srt_file}")
+    if not "http" in filename:
+        file_dir = os.path.dirname(os.path.abspath(filename))
+        print(f"Moving subtitle file to: {file_dir}")
+        shutil.copy2(srt_file, file_dir)
+        os.remove(srt_file)
+
+    if not args.keep:
+        print(f"Deleting audio file: {audio_file}")
+        os.remove(audio_file)
 
 # NOTE: ffmpeg needs to be installed on the system first
 # On Windows, install with: choco install ffmpeg
