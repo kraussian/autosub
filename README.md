@@ -26,12 +26,14 @@ options:
 
 ## Example
 
-Let's try extracting subtitles for Obama's iconic 2004 DNC Keynote Speech.  
+Let's try extracting subtitles for [Obama's iconic 2004 DNC Keynote Speech](https://www.youtube.com/watch?v=ueMNqdB1QIE).  
 `python autosub.py https://www.youtube.com/watch?v=ueMNqdB1QIE`
 
 This will extract the video as `Obama's 2004 DNC keynote speech.mp4`, then extract the audio track as `Obama's 2004 DNC keynote speech.wav`. And finally generates the subtitle file `Obama's 2004 DNC keynote speech.srt`.  
 
-Here are the first few lines of the subtitle file, showing how the speech has been transcribed:  
+Below are the first few lines of the subtitle file, showing how the speech has been transcribed.  
+
+Example of the output can be seen [here](https://youtu.be/-3USli_2nbA)
 
 ```text
 1
