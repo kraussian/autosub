@@ -79,10 +79,10 @@ def shorten_long_duration(input_dict:dict) -> dict:
     length_duration = round(float(input_dict.get("end")) - float(input_dict.get("start")), 2)
     length_text = len(input_dict.get("text"))
     #print(f"Text: {input_dict.get("text")} ({length_text}), Duration: {length_duration}")
-    default_length = 10
+    default_length = max(length_text / 5, 10)
     if length_duration > default_length:
         input_dict["end"] = float(input_dict.get("start")) + default_length
-        print(f"Shortened length: {input_dict.get("start")} --> {input_dict.get("end")} ({length_duration}) {input_dict.get("text")}")
+        print(f"Shortened length: {input_dict.get("start")} --> {input_dict.get("end")} ({length_duration} -> {default_length}) {input_dict.get("text")}")
     return input_dict
 
 def get_youtube_video(url:str) -> str:
@@ -143,6 +143,14 @@ if __name__ == "__main__":
         options['task'] = 'translate'
 
     print("Extracting subtitles")
+    vad_params = dict(
+        threshold=0.05,  # Speech threshold. Silero VAD outputs speech probabilities for each audio chunk, probabilities ABOVE this value are considered as SPEECH.
+        neg_threshold=0.01,  # Silence threshold for determining the end of speech. If a probability is lower than neg_threshold, it is always considered silence.
+        min_speech_duration_ms=0,  # Final speech chunks shorter min_speech_duration_ms are thrown out
+        max_speech_duration_s=1000,  # Chunks longer than max_speech_duration_s will be split at the timestamp of the last silence that lasts more than 100ms (if any)
+        #min_silence_duration_ms=500,  # In the end of each speech chunk wait for min_silence_duration_ms before separating it
+        #speech_pad_ms=100,  # Final speech chunks are padded by speech_pad_ms each side
+    )
     segments, info = model.transcribe(
         audio=audio_file,
         language=options.get("language"),
@@ -152,7 +160,7 @@ if __name__ == "__main__":
         temperature=0.0,
         condition_on_previous_text=False,
         vad_filter=True,  # The library integrates the Silero VAD model to filter out parts of the audio without speech
-        vad_parameters=dict(threshold=0.05, neg_threshold=0.01, min_silence_duration_ms=2000),  # Customize VAD parameters
+        vad_parameters=vad_params,  # Customize VAD parameters
     )
     print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
 
@@ -183,9 +191,10 @@ if __name__ == "__main__":
     print(f"Wrote subtitle file to: {srt_file}")
     if not "http" in filename:
         file_dir = os.path.dirname(os.path.abspath(filename))
-        print(f"Moving subtitle file to: {file_dir}")
-        shutil.copy2(srt_file, file_dir)
-        os.remove(srt_file)
+        if file_dir != os.getcwd():
+            print(f"Moving subtitle file to: {file_dir}")
+            shutil.copy2(srt_file, file_dir)
+            os.remove(srt_file)
 
     if not args.keep:
         print(f"Deleting audio file: {audio_file}")
