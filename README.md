@@ -60,7 +60,7 @@ OPENAI_PORT=1234
 OPENAI_MODEL=llama-3.3-instruct
 ```
 
-## Example
+## Example: Extract from YouYube
 
 Let's try extracting subtitles for [Obama's iconic 2004 DNC Keynote Speech](https://www.youtube.com/watch?v=ueMNqdB1QIE).  
 `python autosub.py https://www.youtube.com/watch?v=ueMNqdB1QIE`
@@ -97,8 +97,11 @@ His father, my grandfather, was a cook, a domestic servant to the British.
 But my grandfather had larger dreams for his son.
 ```
 
-## Transcribe + Translate Example
+## Example: Transcribe + Translate Non-English Speech
 
 Let's try with non-English speech, taking a Japanese narration from [Mitsue Links](https://www.mitsue.co.jp/english/service/audio_and_video/audio_production/narrators_sample.html). Asuka Yokoyama's `Sample 1 (38sec.)` was used in this example.
 
 This sample file was processed with: `python autosub.py 01.mp3 --openai`
+
+Here's what the output looks like:
+<video src='https://github.com/user-attachments/assets/2081d4bf-10c9-4ef1-a91a-ff01329bda6a' width=180/>
