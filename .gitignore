@@ -1,8 +1,11 @@
-# Temporary WAV, MP3, MP4 and SRT files
+# Temporary files used for testing
 *.wav
 *.srt
 *.mp3
 *.mp4
+*.txt
+*.jpg
+*.png
 
 # VS Code environment files
 *.code-workspace

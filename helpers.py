@@ -69,7 +69,9 @@ def remove_repetitions_and_sequences(input_string:str, char_repeats:int=6, seq_r
     return result
 
 def cleanup_text(input_dict:dict) -> dict:
-    input_string = input_dict.get("text")
+    input_string = input_dict.get("text", "").strip()
+    # Remove prefix "-" at start of lines
+    input_string = re.sub(r"^- ", "", input_string, flags=re.MULTILINE)
     output_string = remove_repetitions_and_sequences(input_string)
     input_dict["text"] = output_string
     return input_dict
