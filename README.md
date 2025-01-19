@@ -30,7 +30,9 @@ options:
 
 AutoSub provides the option to keep both the audio transcription in original language as well as add an English translation to the generated subtitles.
 
-To do this with OpenAI models such as `gpt-4o`, follow these instructions:
+To do this, run the program with the `--openai` option, for example: `python autosub.py filename.mp4 --openai`
+
+To use OpenAI models such as `gpt-4o`, follow these instructions:
 
 1. Create a text file named `.env` in the same folder where you have downloaded `autosub.py`
 2. Add the following entries to the `env` file
@@ -67,41 +69,16 @@ Let's try extracting subtitles for [Obama's iconic 2004 DNC Keynote Speech](http
 
 This will extract the video as `Obama's 2004 DNC keynote speech.mp4`, then extract the audio track as `Obama's 2004 DNC keynote speech.wav`. And finally generates the subtitle file `Obama's 2004 DNC keynote speech.srt`.  
 
-Below are the first few lines of the subtitle file, showing how the speech has been transcribed.  
+![sample_obama](https://github.com/user-attachments/assets/97984109-45e6-4e4b-9e82-30eb081f3193)
 
-Example of the output can be seen [here](https://youtu.be/-3USli_2nbA)
-
-```text
-1
-00:00:06,130 --> 00:00:13,130
-Let me express my deepest gratitude for the privilege of addressing this convention.
-
-2
-00:00:13,130 --> 00:00:21,130
-Tonight is a particular honor for me because, let's face it, my presence on this stage is pretty unlikely.
-
-3
-00:00:21,130 --> 00:00:28,130
-My father was a foreign student, born and raised in a small village in Kenya.
-
-4
-00:00:28,130 --> 00:00:32,130
-He grew up herding goats, went to school in a tin roof shack.
-
-5
-00:00:32,130 --> 00:00:39,470
-His father, my grandfather, was a cook, a domestic servant to the British.
-
-6
-00:00:39,470 --> 00:00:42,610
-But my grandfather had larger dreams for his son.
-```
+Full example [on YouTube](https://youtu.be/-3USli_2nbA)
 
 ## Example: Transcribe + Translate Non-English Speech
 
 Let's try with non-English speech, taking a Japanese narration from [Mitsue Links](https://www.mitsue.co.jp/english/service/audio_and_video/audio_production/narrators_sample.html). Asuka Yokoyama's `Sample 1 (38sec.)` was used in this example.
 
-This sample file was processed with: `python autosub.py 01.mp3 --openai`
+The `--openai` option was used to show the original Japanese transcription as well as show the English translation.
 
 Here's what the output looks like:
-<video src='https://github.com/user-attachments/assets/2081d4bf-10c9-4ef1-a91a-ff01329bda6a' width=180/>
+
+![sample_japanese](https://github.com/user-attachments/assets/0144cf38-f7dd-4f54-a880-48a2406485dd)
