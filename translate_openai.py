@@ -17,28 +17,13 @@ API_KEY = os.getenv("OPENAI_API_KEY", "MY-KEY")
 API_URL = f"http://{HOST}:{PORT}/v1"
 
 # Function: Run user input against LLM
-def process_llm(user_input:str, conversation_history:list=[], model:str=MODEL, temperature:float=0.2, num_choices:int=3, DEBUG:bool=False) -> str:
-    def quality_score(translation, original):
-        match = re.search(r"---BEGIN TEXT---\n(.*?)\n---END TEXT---", original, re.DOTALL)
-        if match:
-            # Extract the text between the markers and split into lines
-            original_segments = match.group(1).splitlines()
-        else:
-            print(f"Received input:\n{original}")
-            raise ValueError("No text found between ---BEGIN TEXT--- and ---END TEXT---")
-        # Split the translation into lines (segments)
-        translated_segments = translation.splitlines()
-        # Compare the number of segments
-        segment_match_score = -abs(len(translated_segments) - len(original_segments))
-        # Return the score (higher is better)
-        return segment_match_score
-
+def process_llm(user_input:str, conversation_history:list=[], model:str=MODEL, temperature:float=0.5, DEBUG:bool=False) -> str:
     # Append current user input to conversation history
     conversation_history.append({"role": "user", "content": user_input})
 
     # Setup OpenAI-compatible client
     if HOST == "":
-        client = openai.OpenAI()  # Use OpenAI
+        client = openai.OpenAI(api_key=API_KEY)  # Use OpenAI
     else:
         client = openai.OpenAI(base_url=API_URL)  # Use custom OpenAI-compatible endpoint
 
@@ -46,7 +31,6 @@ def process_llm(user_input:str, conversation_history:list=[], model:str=MODEL, t
     response = client.chat.completions.create(
         model=model,
         temperature=temperature,
-        n=num_choices,
         messages=conversation_history,
     )
 
@@ -54,11 +38,9 @@ def process_llm(user_input:str, conversation_history:list=[], model:str=MODEL, t
     if DEBUG:
         print(f"Response received: {response}")
     if response:
-        best_translation = max(response.choices, key=lambda x: quality_score(x.message.content.strip(), user_input))
-        if DEBUG:
-            print(f"Best translation:\n{best_translation.message.content.strip()}")
-        final_response = best_translation.message.content.strip()
-        #final_response = response.choices[0].message.content.strip()
+        final_response = response.choices[0].message.content.strip()
+        # Clean up artifacts in text
+        final_response = re.sub(r"---.*?---", "", final_response).replace("`", "").replace("---", "").strip()
         conversation_history.append(
             {"role": "assistant", "content": final_response}
         )
@@ -88,7 +70,12 @@ def split_text_into_chunks(text, max_characters):
     chunks.append(text)  # Add the remaining text
     return chunks
 
-def process_translation(list_transcribe:list=[]) -> list:
+def split_chunks(lst, chunk_size:int=20):
+    if chunk_size <= 0:
+        raise ValueError("Chunk size must be greater than 0.")
+    return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
+
+def process_translation(list_transcribe:list=[], DEBUG:bool=False) -> list:
     """
     for seg in tqdm(list_transcribe, total=len(list_transcribe), desc="Fixing Transcription"):
         orig_text = seg.get("text")
@@ -98,52 +85,61 @@ def process_translation(list_transcribe:list=[]) -> list:
             print(f"{orig_text} ->\n{res}")
     """
     list_translate = []
-    trans_text = ""
+    orig_text = ""
     for i, segment in enumerate(list_transcribe):
-        trans_text += f'[{i}] {segment.get("text")}\n'
-    trans_text = trans_text.strip()
+        orig_text += f'[{i}] {segment.get("text")}\n'
+    orig_text = orig_text.strip()
     # Define the prompt structure
     base_prompt = (
-        "Translate the following text to English. "
-        "Preserve the original structure, including the number of segments and line breaks. "
-        "Do not add, remove, or modify lines. "
-        "Provide the translation only.\n"
+        #"Translate the following text to English. "
+        #"Preserve the original structure, including the number of segments and line breaks. "
+        #"Do not add, remove, or modify lines. "
+        "Translate the following sentences to English while keeping the numbering, structure and line breaks intact. ",
+        "Make sure each line corresponds to the same number in the original text. ",
+        "Do not skip or merge any lines. ",
+        "Ensure the number of lines of the translation exactly match the number of lines in the original text. ",
+        "Provide the translation only.\n",
     )
     # Use only 90% of MAX_TOKENS to be conservative
     #MAX_TOKENS = int(int(os.getenv("MAX_TOKENS", 8000)) * 0.9)
     MAX_TOKENS = 1024  # Split into chunks if prompt > 1k characters
-    prompt = f"{base_prompt}---BEGIN TEXT---\n{trans_text}\n---END TEXT---"
+    prompt = f"{base_prompt}---BEGIN TEXT---\n{orig_text}\n---END TEXT---"
     if estimate_token_count(prompt) < MAX_TOKENS:
-        print(f"Translating {len(list_transcribe)} segments, {len(trans_text)} characters")
+        print(f"Translating {len(list_transcribe)} segments, {len(orig_text)} characters")
         res = process_llm(user_input=prompt, conversation_history=[])
-        list_res = res.split("\n")
+        list_res = res.splitlines()
         if len(list_res) == len(list_transcribe):
             for item in list_res:
                 item_text = re.findall(r"\[[a-zA-Z0-9]+\] (.*)", item.strip())[0]
                 list_translate.append({"text": item_text})
     else:
-        chunks = split_text_into_chunks(trans_text, MAX_TOKENS)
-        print(f"Transcription is very long ({len(trans_text)} chars). Splitting into {len(chunks)} chunks for translation")
-        for chunk in chunks:
-            print(f"    Translating chunk of size {len(chunk)}")
+        #chunks = split_text_into_chunks(orig_text, MAX_TOKENS)
+        chunks = split_chunks(orig_text.splitlines())
+        print(f"Transcription is very long ({len(orig_text)} chars). Splitting into {len(chunks)} chunks for translation")
+        for chunk in tqdm(iterable=chunks, desc="Translating", total=len(chunks)):
+            chunk_text = "\n".join(chunk)
+            if DEBUG:
+                print(f"    Translating chunk of size {len(chunk_text)}")
             terminate = False
-            prompt = f"{base_prompt}---BEGIN TEXT---\n{chunk}\n---END TEXT---"
-            RETRIES = 3
+            prompt = f"{"".join(base_prompt)}---BEGIN TEXT---\n{chunk_text}\n---END TEXT---"
+            RETRIES = 10
             for attempt in range(1, RETRIES+1):
                 res = process_llm(user_input=prompt, conversation_history=[])
-                res = re.sub(r"---.*?---", "", res).strip()
-                list_res = res.split("\n")
+                list_res = res.splitlines()
                 # Retry translation if number of chunks do not match
-                if len(list_res) != len(chunk.split("\n")):
-                    print(f"    Translation size {len(list_res)} and chunk size {len(chunk.split('\n'))} do not match. Retrying...")
+                if len(list_res) != len(chunk):
+                    if DEBUG:
+                        print(f"        Translation size {len(list_res)} and chunk size {len(chunk)} do not match. Retrying...")
                 else:
                     break  # Break out of loop since process is successful
             if attempt == RETRIES:
+                with open(file="text.txt", mode="w", encoding="utf-8") as f:
+                    f.write(orig_text)
                 with open(file="chunk.txt", mode="w", encoding="utf-8") as f:
-                    f.write(chunk)
+                    f.write("\n".join(chunk))
                 with open(file="res.txt", mode="w", encoding="utf-8") as f:
                     f.write(res)
-                print("    Failed translation after maximum number of retries. chunk.txt and res.txt saved for debugging")
+                print("    Failed translation after maximum number of retries. text.txt, chunk.txt and res.txt saved for debugging")
                 sys.exit(-1)
                 #break  # Maximum number of unsuccessful retries, terminal loop
             for item in list_res:

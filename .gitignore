@@ -6,6 +6,8 @@
 *.txt
 *.jpg
 *.png
+*.gif
+*.pkl
 
 # VS Code environment files
 *.code-workspace

@@ -16,7 +16,7 @@ if __name__ == "__main__":
     # Import Python modules
     import os
     import sys
-    import re
+    import pickle
     import shutil
     from   faster_whisper import WhisperModel  # Install with: pip install faster-whisper
     # Import custom modules
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     audio_file = extract_audio(filename)
     # NOTE: Available Whisper models:
     # tiny, base, small, medium, large-v1, large-v2, large-v3, large-v3-turbo
-    model_name = 'large-v2'
+    model_name = 'large-v3'
     print(f"Loading Whisper model: {model_name}")
     # Load Whisper model to run on GPU with FP16
     model = WhisperModel(model_name, device="cuda", compute_type="float16")
@@ -61,8 +61,8 @@ if __name__ == "__main__":
 
     print("Extracting subtitles")
     vad_params = dict(
-        threshold=0.05,  # Speech threshold. Silero VAD outputs speech probabilities for each audio chunk, probabilities ABOVE this value are considered as SPEECH.
-        neg_threshold=0.01,  # Silence threshold for determining the end of speech. If a probability is lower than neg_threshold, it is always considered silence.
+        threshold=0.20,  # Speech threshold. Silero VAD outputs speech probabilities for each audio chunk, probabilities ABOVE this value are considered as SPEECH.
+        neg_threshold=0.05,  # Silence threshold for determining the end of speech. If a probability is lower than neg_threshold, it is always considered silence.
         min_speech_duration_ms=0,  # Final speech chunks shorter min_speech_duration_ms are thrown out
         max_speech_duration_s=1000,  # Chunks longer than max_speech_duration_s will be split at the timestamp of the last silence that lasts more than 100ms (if any)
         #min_silence_duration_ms=500,  # In the end of each speech chunk wait for min_silence_duration_ms before separating it
@@ -101,6 +101,9 @@ if __name__ == "__main__":
     list_transcribe = remove_dup_segments(list_transcribe)
     list_transcribe = [adjust_duration(item) for item in list_transcribe]
     print(f"Cleaned up to {len(list_transcribe)} segments")
+    with open(file="list_transcribe.pkl", mode="wb") as f:
+        pickle.dump(obj=list_transcribe, file=f, protocol=pickle.HIGHEST_PROTOCOL)
+        print("    Pickled to list_transcribe.pkl for debugging")
 
     if not args.keep:
         print(f"Deleting audio file: {audio_file}")
