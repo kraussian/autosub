@@ -64,8 +64,9 @@ OPENAI_MODEL=llama-3.3-instruct
 
 ## Example: Extract from YouYube
 
-Let's try extracting subtitles for [Obama's iconic 2004 DNC Keynote Speech](https://www.youtube.com/watch?v=ueMNqdB1QIE).  
-`python autosub.py https://www.youtube.com/watch?v=ueMNqdB1QIE`
+Let's try extracting subtitles for [Obama's iconic 2004 DNC Keynote Speech](https://www.youtube.com/watch?v=ueMNqdB1QIE).
+
+Command: `python autosub.py https://www.youtube.com/watch?v=ueMNqdB1QIE`
 
 This will extract the video as `Obama's 2004 DNC keynote speech.mp4`, then extract the audio track as `Obama's 2004 DNC keynote speech.wav`. And finally generates the subtitle file `Obama's 2004 DNC keynote speech.srt`.  
 
@@ -76,6 +77,8 @@ Full example [on YouTube](https://youtu.be/-3USli_2nbA)
 ## Example: Transcribe + Translate Non-English Speech
 
 Let's try with non-English speech, taking a Japanese narration from [Mitsue Links](https://www.mitsue.co.jp/english/service/audio_and_video/audio_production/narrators_sample.html). Asuka Yokoyama's `Sample 1 (38sec.)` was used in this example.
+
+Command: `python autosub.py 01.mp3 --openai`
 
 The `--openai` option was used to show the original Japanese transcription as well as show the English translation.
 
