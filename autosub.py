@@ -9,7 +9,9 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--language', help="Override language of video file, e.g. en, ja, ko, zh")
     parser.add_argument('-t', '--translate', help="Automatically translate subtitles to English", action='store_true')
     parser.add_argument('-o', '--openai', help="Use OpenAI API to translate subtitles, keeping transcription", action='store_true')
-    parser.add_argument('-k', '--keep', help="Keep WAV file created during process", action='store_true')
+    parser.add_argument('--beamsize', help="Override the beam size used by Whisper")
+    parser.add_argument('--threshold', help="Override the threshold used for VAD")
+    parser.add_argument('--keep', help="Keep WAV file created during process", action='store_true')
     args = parser.parse_args()
 
     print("Importing modules")
@@ -60,9 +62,17 @@ if __name__ == "__main__":
             options['task'] = "translate"
 
     print("Extracting subtitles")
+    if args.beamsize:
+        BEAMSIZE = int(args.beamsize)
+    else:
+        BEAMSIZE = 10
+    if args.threshold:
+        VAD_THRESHOLD = float(args.threshold)
+    else:
+        VAD_THRESHOLD = 0.40
     WORD_TIMESTAMPS = True
     vad_params = dict(
-        threshold=0.30,                # Default 0.5. Speech threshold. Silero VAD outputs speech probabilities for each audio chunk, probabilities ABOVE this value are considered as SPEECH.
+        threshold=VAD_THRESHOLD,       # Default 0.5. Speech threshold. Silero VAD outputs speech probabilities for each audio chunk, probabilities ABOVE this value are considered as SPEECH.
         #neg_threshold=0.15,           # Default None. Silence threshold for determining the end of speech. If a probability is lower than neg_threshold, it is always considered silence.
         #min_speech_duration_ms=0,     # Default 0. Final speech chunks shorter min_speech_duration_ms (in milliseconds) are thrown out
         #max_speech_duration_s=1.0,    # Default float("inf"). Chunks longer than max_speech_duration_s (in seconds) will be split at the timestamp of the last silence that lasts more than 100ms (if any)
@@ -73,7 +83,7 @@ if __name__ == "__main__":
         audio=audio_file,
         language=options.get("language"),
         task=options.get("task"),
-        beam_size=15,
+        beam_size=BEAMSIZE,
         log_progress=False,
         #temperature=0.0,
         #condition_on_previous_text=False,
