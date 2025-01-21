@@ -8,6 +8,7 @@
 *.png
 *.gif
 *.pkl
+*.llc
 
 # Test scripts
 test*.py
