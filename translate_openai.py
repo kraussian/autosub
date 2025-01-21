@@ -4,7 +4,7 @@ import re
 import pickle
 import openai  # Install with: pip install -U openai
 import dotenv  # Install with pip install -U python-dotenv
-from   tqdm import tqdm  # Install with: pip install -U tqdm
+import tqdm    # Install with: pip install -U tqdm
 
 # Load environment variables
 dotenv.load_dotenv()
@@ -77,8 +77,8 @@ def split_chunks(lst, chunk_size:int=20):
 
 def process_translation(list_transcribe:list=[], DEBUG:bool=False) -> list:
     """
-    for seg in tqdm(list_transcribe, total=len(list_transcribe), desc="Fixing Transcription"):
-        orig_text = seg.get("text")
+    for seg in tqdm.tqdm(list_transcribe, total=len(list_transcribe), desc="Fixing Transcription"):
+        orig_text = seg.text
         input_text = f"This text has been transcribed using OpenAI Whisper. Look for obvious errors and correct it: {orig_text}. Give me only the corrected text, nothing else."
         res = process_llm(input_text)
         if orig_text != res:
@@ -87,90 +87,66 @@ def process_translation(list_transcribe:list=[], DEBUG:bool=False) -> list:
     list_translate = []
     orig_text = ""
     for i, segment in enumerate(list_transcribe):
-        orig_text += f'[{i}] {segment.get("text")}\n'
+        orig_text += f'[{i}] {segment.text}\n'
     orig_text = orig_text.strip()
     # Define the prompt structure
     base_prompt = (
-        #"Translate the following text to English. "
-        #"Preserve the original structure, including the number of segments and line breaks. "
-        #"Do not add, remove, or modify lines. "
         "Translate the following sentences to English while keeping the numbering, structure and line breaks intact. ",
         "Make sure each line corresponds to the same number in the original text. ",
         "Do not skip or merge any lines. ",
         "Ensure the number of lines of the translation exactly match the number of lines in the original text. ",
         "Provide the translation only.\n",
     )
-    # Use only 90% of MAX_TOKENS to be conservative
-    #MAX_TOKENS = int(int(os.getenv("MAX_TOKENS", 8000)) * 0.9)
-    MAX_TOKENS = 1024  # Split into chunks if prompt > 1k characters
-    prompt = f"{base_prompt}---BEGIN TEXT---\n{orig_text}\n---END TEXT---"
-    if estimate_token_count(prompt) < MAX_TOKENS:
-        print(f"Translating {len(list_transcribe)} segments, {len(orig_text)} characters")
-        res = process_llm(user_input=prompt, conversation_history=[])
-        list_res = res.splitlines()
-        if len(list_res) == len(list_transcribe):
-            for item in list_res:
-                item_text = re.findall(r"\[[a-zA-Z0-9]+\] (.*)", item.strip())[0]
-                list_translate.append({"text": item_text})
-    else:
-        #chunks = split_text_into_chunks(orig_text, MAX_TOKENS)
-        chunks = split_chunks(orig_text.splitlines())
-        print(f"Transcription is very long ({len(orig_text)} chars). Splitting into {len(chunks)} chunks for translation")
-        for chunk in tqdm(iterable=chunks, desc="Translating", total=len(chunks)):
-            chunk_text = "\n".join(chunk)
-            if DEBUG:
-                print(f"    Translating chunk of size {len(chunk_text)}")
-            terminate = False
-            prompt = f"{"".join(base_prompt)}---BEGIN TEXT---\n{chunk_text}\n---END TEXT---"
-            RETRIES = 10
-            for attempt in range(1, RETRIES+1):
-                res = process_llm(user_input=prompt, conversation_history=[])
-                list_res = res.splitlines()
-                # Retry translation if number of chunks do not match
-                if len(list_res) != len(chunk):
-                    if DEBUG:
-                        print(f"        Translation size {len(list_res)} and chunk size {len(chunk)} do not match. Retrying...")
+    chunks = split_chunks(orig_text.splitlines())
+    print(f"Splitting into {len(chunks)} chunks for translation")
+    for chunk in tqdm.tqdm(iterable=chunks, desc="Translating", total=len(chunks)):
+        chunk_text = "\n".join(chunk)
+        if DEBUG:
+            print(f"    Translating chunk of size {len(chunk_text)}")
+        terminate = False
+        prompt = f"{"".join(base_prompt)}---BEGIN TEXT---\n{chunk_text}\n---END TEXT---"
+        RETRIES = 10
+        for attempt in range(1, RETRIES+1):
+            res = process_llm(user_input=prompt, conversation_history=[])
+            list_res = res.splitlines()
+            # Retry translation if number of chunks do not match
+            if len(list_res) != len(chunk):
+                if DEBUG:
+                    print(f"        Translation size {len(list_res)} and chunk size {len(chunk)} do not match. Retrying...")
+            else:
+                break  # Break out of loop since process is successful
+        if attempt == RETRIES:
+            with open(file="text.txt", mode="w", encoding="utf-8") as f:
+                f.write(orig_text)
+            with open(file="chunk.txt", mode="w", encoding="utf-8") as f:
+                f.write("\n".join(chunk))
+            with open(file="res.txt", mode="w", encoding="utf-8") as f:
+                f.write(res)
+            print("    Failed translation after maximum number of retries. text.txt, chunk.txt and res.txt saved for debugging")
+            sys.exit(-1)
+        for item in list_res:
+            try:
+                regex_result = re.findall(r"\[[a-zA-Z0-9]+\] (.*)", item.strip())
+                if len(regex_result) > 0:
+                    item_text = regex_result[0]
                 else:
-                    break  # Break out of loop since process is successful
-            if attempt == RETRIES:
-                with open(file="text.txt", mode="w", encoding="utf-8") as f:
-                    f.write(orig_text)
-                with open(file="chunk.txt", mode="w", encoding="utf-8") as f:
-                    f.write("\n".join(chunk))
-                with open(file="res.txt", mode="w", encoding="utf-8") as f:
-                    f.write(res)
-                print("    Failed translation after maximum number of retries. text.txt, chunk.txt and res.txt saved for debugging")
-                sys.exit(-1)
-                #break  # Maximum number of unsuccessful retries, terminal loop
-            for item in list_res:
-                try:
-                    regex_result = re.findall(r"\[[a-zA-Z0-9]+\] (.*)", item.strip())
-                    if len(regex_result) > 0:
-                        item_text = regex_result[0]
-                    else:
-                        item_text = item.strip()
-                    # Capitalize first word of each sentence if it's not already capitalized
-                    if not item_text[0].isupper():
-                        item_text = item_text[0].upper() + item_text[1:]
-                except Exception as e:
-                    print("    Chunk translation failed. Terminating loop")
-                    terminate = True
-                    break
-                list_translate.append({"text": item_text})
-            if terminate:
+                    item_text = item.strip()
+                # Capitalize first word of each sentence if it's not already capitalized
+                if not item_text[0].isupper():
+                    item_text = item_text[0].upper() + item_text[1:]
+            except Exception as e:
+                print("    Chunk translation failed. Terminating loop")
+                terminate = True
                 break
+            list_translate.append({"text": item_text})
+        if terminate:
+            break
     if len(list_transcribe) != len(list_translate):
-        """
-        # Print all original and translated segments to manually see where the mismatch is happening
-        for i, segment in enumerate(list_transcribe):
-            print(f"{segment.get('text')} -> {list_translate[i].get('text')}")
-        """
         # Iterate through each transcribed text and translate
         print("Bulk translation failed. Translating each segment separately")
         list_translate = []
-        for seg in tqdm(list_transcribe, total=len(list_transcribe), desc="Translating"):
-            #input_text = f"Translate this text to English: {seg.get('text')}. Give me only the English translation, nothing else."
-            prompt = f"{base_prompt}---BEGIN TEXT---\n{seg.get('text')}\n---END TEXT---"
+        for seg in tqdm.tqdm(list_transcribe, total=len(list_transcribe), desc="Translating"):
+            prompt = f"{base_prompt}---BEGIN TEXT---\n{seg.text}\n---END TEXT---"
             res = process_llm(prompt, conversation_history=[])
             res = re.sub(r"---.*?---", "", res).strip()
             list_translate.append({"text": res})

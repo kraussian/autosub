@@ -8,7 +8,7 @@ from   typing import Iterator, TextIO
 def extract_audio(filename:str, overwrite:bool=False, silent:bool=True, acodec:str="pcm_s16le", ac:int=1, ar:str="16k"):
     outfile = '.'.join(os.path.basename(filename).split('.')[:-1]) + '.wav'
     if os.path.exists(outfile) and not overwrite:
-        print(f"Audio file already exists. To overwrite, pass overwrite=True")
+        print(f"    Audio file already exists. To overwrite, pass overwrite=True")
     else:
         print(f"Extracting audio as: {outfile} (codec: {acodec}, {ac} channels @{ar}Hz)")
         ffmpeg.input(filename).output(
@@ -31,16 +31,16 @@ def format_timestamp(seconds:float, always_include_hours:bool=False) -> str:
     return f"{hours_marker}{minutes:02d}:{seconds:02d},{milliseconds:03d}"
 
 # Function: Write SRT subtitle
-def write_srt(transcript:Iterator[dict], translation:Iterator[dict]=[], outfile:TextIO="output.srt", dry_run:bool=False):
+def write_srt(transcript, translation, outfile:TextIO="output.srt", dry_run:bool=False):
     for i, segment in enumerate(transcript, start=1):
         output_text = f"{i}\n"
-        output_text += f"{format_timestamp(segment['start'], always_include_hours=True)} --> "
-        output_text += f"{format_timestamp(segment['end'], always_include_hours=True)}\n"
+        output_text += f"{format_timestamp(segment.start, always_include_hours=True)} --> "
+        output_text += f"{format_timestamp(segment.end, always_include_hours=True)}\n"
         if len(translation) > 0:
-            output_text += f'<font color="#gray">{segment["text"].strip().replace("-->", "->")}</font>\n'
+            output_text += f'<font color="#gray">{segment.text.strip().replace("-->", "->")}</font>\n'
             output_text += f'{translation[i-1].get("text").strip().replace("-->", "->")}\n'
         else:
-            output_text += f'{segment["text"].strip().replace("-->", "->")}\n'
+            output_text += f'{segment.text.strip().replace("-->", "->")}\n'
         if dry_run:
             print(output_text, flush=True)
         else:
@@ -68,38 +68,151 @@ def remove_repetitions_and_sequences(input_string:str, char_repeats:int=6, seq_r
 
     return result
 
-def cleanup_text(input_dict:dict) -> dict:
-    input_string = input_dict.get("text", "").strip()
+# Split a long sentence at punctuation marks, conservatively ensuring roughly equal lengths
+def split_long_sentence(text:str, max_length:int, DEBUG:bool=False) -> list:
+    if len(text) <= max_length:
+        return [text]
+
+    # Define punctuation marks for potential splitting
+    punctuation_marks = r'[,;-।、؛،：]'
+    parts = re.split(pattern=punctuation_marks, string=text, flags=re.UNICODE)
+
+    result, current_part = [], ""
+    for part in parts:
+        if DEBUG: print(f"    Processing part: {part}")
+        if len(current_part) + len(part) <= max_length:
+            current_part += part
+        else:
+            if current_part.strip():
+                result.append(current_part.strip())
+            current_part = part
+        if DEBUG: print(f"    Current part: {current_part}")
+
+    if current_part.strip():
+        result.append(current_part.strip())
+
+    # Ensure no individual part exceeds max_length by splitting at spaces conservatively
+    final_result = []
+    for part in result:
+        if len(part) > max_length:
+            words = part.split()
+            current = []
+            for word in words:
+                if len(" ".join(current) + " " + word) <= max_length:
+                    current.append(word)
+                else:
+                    final_result.append(" ".join(current).strip())
+                    current = [word]
+            if current:
+                final_result.append(" ".join(current).strip())
+        else:
+            final_result.append(part)
+
+    return final_result
+
+# Function: Split and merge segments based on international punctuation, sentence completion, and sentence length
+def adjust_segments(segments, lookahead_segments:int=3, max_sentence_length:int=100, DEBUG:bool=False):
+    # Check if the text ends with a sentence-ending punctuation mark
+    def is_sentence_complete(text):
+        return bool(re.search(r'[.!?।።。！？¿¡](?=\s|$)', text.strip()))
+
+    result_segments = []
+    buffer_text = []
+    buffer_start = None
+    processed_segments = set()  # Tracks processed segments to avoid duplication
+
+    for i, segment in enumerate(segments):
+        if i in processed_segments:
+            continue  # Skip already processed segments
+
+        buffer_text = []
+        buffer_start = None
+
+        # Gather text from the current segment and lookahead
+        for j in range(i, min(i + lookahead_segments + 1, len(segments))):
+            if j in processed_segments:
+                continue
+
+            current_segment = segments[j]
+            for word in current_segment.words:
+                word_text = word.word.strip()
+                word_start = round(word.start, 2)
+                word_end = round(word.end, 2)
+
+                if buffer_start is None:
+                    buffer_start = word_start
+                buffer_text.append((word_text, word_start, word_end))
+
+            processed_segments.add(j)
+
+        # Combine buffer into text
+        combined_text = " ".join([w[0] for w in buffer_text]).strip()
+        if DEBUG: print(f"Combined text: {combined_text}")
+
+        # Split into sentences at end-of-sentence punctuation
+        sentences = re.split(r'(?<=[.!?।።。！？¿¡])\s+', combined_text)
+        sentence_start = buffer_start
+
+        for sentence in sentences:
+            if not sentence.strip():
+                continue
+
+            # Extract start and end times for the sentence
+            sentence_words = [w for w in buffer_text if w[0] in sentence]
+            sentence_start = sentence_words[0][1]
+            sentence_end = sentence_words[-1][2]
+
+            # Split long sentences if necessary
+            if DEBUG: print(f"Current sentence: {sentence}")
+            result_segments.append({
+                "start": sentence_start,
+                "end": sentence_end,
+                "text": sentence
+            })
+            """
+            split_sentences = split_long_sentence(text=sentence.strip(), max_length=max_sentence_length, DEBUG=DEBUG)
+            for split_sentence in split_sentences:
+                result_segments.append({
+                    "start": sentence_start,
+                    "end": sentence_end,
+                    "text": split_sentence
+                })
+            """
+
+    return result_segments
+
+def cleanup_text(segment:dict) -> dict:
+    input_string = segment.text.strip()
     # Remove prefix "-" at start of lines
     input_string = re.sub(r"^- ", "", input_string, flags=re.MULTILINE)
     output_string = remove_repetitions_and_sequences(input_string)
-    input_dict["text"] = output_string
-    return input_dict
+    segment.text = output_string
+    return segment
 
-def remove_dup_segments(lst):
-    if not lst:  # Handle empty list
+def remove_dup_segments(segments):
+    if not segments:  # Handle empty list
         return []
 
-    result = [lst[0]]  # Initialize with the first element
-    for i in range(1, len(lst)):
-        if lst[i].get("text") != lst[i - 1].get("text"):  # Compare with the previous element
-            result.append(lst[i])
+    result = [segments[0]]  # Initialize with the first element
+    for i in range(1, len(segments)):
+        if segments[i].text != segments[i - 1].text:  # Compare with the previous element
+            result.append(segments[i])
     return result
 
-def adjust_duration(input_dict:dict) -> dict:
-    length_duration = round(float(input_dict.get("end")) - float(input_dict.get("start")), 2)
-    length_text = len(input_dict.get("text"))
-    length_max = max(length_text / 4, 10)
+def adjust_duration(segment):
+    length_duration = round(float(segment.end) - float(segment.start), 2)
+    length_text = len(segment.text)
+    length_max = round(max(length_text / 3, 3), 2)
     if length_duration > length_max:
-        input_dict["end"] = float(input_dict.get("start")) + length_max
-        print(f"Shortened length: {input_dict.get("start")} --> {input_dict.get("end")} ({length_duration} -> {length_max}) {input_dict.get("text")}")
+        segment.end = round(float(segment.start) + length_max, 2)
+        print(f"    Shortened length: {round(float(segment.start), 2)} --> {round(float(segment.end), 2)} ({length_duration} -> {length_max}) {segment.text}")
     """
     length_min = min(length_text / 4, 10)
     if length_duration < length_min:
-        input_dict["end"] = float(input_dict.get("start")) + length_min
-        print(f"Increased length: {input_dict.get("start")} --> {input_dict.get("end")} ({length_duration} -> {length_min}) {input_dict.get("text")}")
+        segment["end"] = float(segment.get("start")) + length_min
+        print(f"Increased length: {segment.get("start")} --> {segment.get("end")} ({length_duration} -> {length_min}) {segment.get("text")}")
     """
-    return input_dict
+    return segment
 
 def get_youtube_video(url:str) -> str:
     # Barack Obama 2004 DNC Speech: https://www.youtube.com/watch?v=ueMNqdB1QIE
