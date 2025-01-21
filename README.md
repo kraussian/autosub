@@ -70,9 +70,9 @@ Command: `python autosub.py https://www.youtube.com/watch?v=ueMNqdB1QIE`
 
 This will extract the video as `Obama's 2004 DNC keynote speech.mp4`, then extract the audio track as `Obama's 2004 DNC keynote speech.wav`. And finally generates the subtitle file `Obama's 2004 DNC keynote speech.srt`.  
 
-![sample_obama](https://github.com/user-attachments/assets/97984109-45e6-4e4b-9e82-30eb081f3193)
+![sample_obama](https://github.com/user-attachments/assets/e0746078-121a-4293-adcd-8df8a7588858)
 
-Full example [on YouTube](https://youtu.be/-3USli_2nbA)
+Full speech example [on YouTube](https://youtu.be/-3USli_2nbA)
 
 ## Example: Transcribe + Translate Non-English Speech
 
