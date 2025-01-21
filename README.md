@@ -84,4 +84,4 @@ The `--openai` option was used to show the original Japanese transcription as we
 
 Here's what the output looks like:
 
-![sample_japanese](https://github.com/user-attachments/assets/0144cf38-f7dd-4f54-a880-48a2406485dd)
+![sample_japanese](https://github.com/user-attachments/assets/73b40e84-0eec-4edc-ad3b-c61cf5173b6d)
