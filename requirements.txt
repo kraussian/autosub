@@ -1,5 +1,0 @@
-torch==2.5.1+cu124
-torchaudio==2.5.1+cu124
-faster-whisper==1.1.1
-ffmpeg-python==0.2.0
-pytubefix==8.11.0
