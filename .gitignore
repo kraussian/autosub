@@ -9,6 +9,9 @@
 *.gif
 *.pkl
 
+# Test scripts
+test*.py
+
 # VS Code environment files
 *.code-workspace
 
