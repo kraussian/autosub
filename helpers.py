@@ -3,7 +3,6 @@ import numpy as np  # Install with: pip install -U numpy
 import regex as re  # Install with: pip install -U regex
 import av           # Install with: pip install -U av
 import wave
-import ffmpeg       # Install with: pip install -U ffmpeg-python
 import pytubefix    # Install with: pip install -U pytubefix
 from   typing import Iterator, TextIO
 
