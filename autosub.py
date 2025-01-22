@@ -5,12 +5,13 @@ if __name__ == "__main__":
         prog='autosub.py',
         description='AutoSub automatically extracts subtitles from video or audio files using OpenAI Whisper',
     )
-    parser.add_argument('filename', help="Path and name of the video file to extract from, or URL of YouTube video")
+    parser.add_argument('filename', help="Path and name of the video or audio file to extract from, or URL of YouTube video")
     parser.add_argument('-l', '--language', help="Override language of video file, e.g. en, ja, ko, zh")
     parser.add_argument('-t', '--translate', help="Automatically translate subtitles to English", action='store_true')
     parser.add_argument('-o', '--openai', help="Use OpenAI API to translate subtitles, keeping transcription", action='store_true')
     parser.add_argument('--beamsize', help="Override the beam size used by Whisper")
     parser.add_argument('--threshold', help="Override the threshold used for VAD")
+    parser.add_argument('--debug', help="Add debug logs to program execution", action='store_true')
     parser.add_argument('--keep', help="Keep WAV file created during process", action='store_true')
     args = parser.parse_args()
 
@@ -26,6 +27,9 @@ if __name__ == "__main__":
     from   helpers import extract_audio, get_youtube_video, write_srt
     from   helpers import adjust_segments, cleanup_text, remove_dup_segments, adjust_duration
 
+    # Set debug mode
+    DEBUG = args.debug
+
     filename = args.filename
     if "http" in filename:
         print("Attempting to download YouTube video")
@@ -38,8 +42,7 @@ if __name__ == "__main__":
             print(f"Processing video: {os.path.basename(filename)}")
 
     audio_file = extract_audio(filename)
-    # NOTE: Available Whisper models:
-    # tiny, base, small, medium, large-v1, large-v2, large-v3, large-v3-turbo
+    # NOTE: Available Whisper models: tiny, base, small, medium, large-v1, large-v2, large-v3, large-v3-turbo
     model_name = 'large-v3'
     print(f"Loading Whisper model: {model_name}")
     # Load Whisper model to run on GPU with FP16
@@ -52,24 +55,17 @@ if __name__ == "__main__":
     if args.language:
         options['language'] = args.language
 
-    OPENAI = False
     # Check if user wants to use OpenAI API to translate subtitles
-    if args.openai:
-        OPENAI = True
+    OPENAI = args.openai
     # Check if user wants to translate instead of transcribe
     if args.translate:
         if not OPENAI:
             options['task'] = "translate"
 
     print("Extracting subtitles")
-    if args.beamsize:
-        BEAMSIZE = int(args.beamsize)
-    else:
-        BEAMSIZE = 10
-    if args.threshold:
-        VAD_THRESHOLD = float(args.threshold)
-    else:
-        VAD_THRESHOLD = 0.40
+    # Define Whisper and VAD parameters
+    BEAMSIZE = int(args.beamsize) if args.beamsize else 10
+    VAD_THRESHOLD = float(args.threshold) if args.threshold else 0.40
     WORD_TIMESTAMPS = True
     vad_params = dict(
         threshold=VAD_THRESHOLD,       # Default 0.5. Speech threshold. Silero VAD outputs speech probabilities for each audio chunk, probabilities ABOVE this value are considered as SPEECH.
@@ -117,9 +113,12 @@ if __name__ == "__main__":
     list_transcribe_clean = [adjust_duration(item) for item in list_transcribe_clean]
     if len(list_transcribe) != len(list_transcribe_clean):
         print(f"Cleaned up to {len(list_transcribe_clean)} segments")
-    with open(file="list_transcribe.pkl", mode="wb") as f:
-        pickle.dump(obj=list_transcribe_clean, file=f, protocol=pickle.HIGHEST_PROTOCOL)
-        print("    Pickled to list_transcribe.pkl for debugging")
+
+    # Store transcription as Pickle in debug mode
+    if DEBUG:
+        with open(file="list_transcribe.pkl", mode="wb") as f:
+            pickle.dump(obj=list_transcribe_clean, file=f, protocol=pickle.HIGHEST_PROTOCOL)
+            print("    Pickled to list_transcribe.pkl for debugging")
 
     if not args.keep:
         print(f"Deleting audio file: {audio_file}")
@@ -128,8 +127,8 @@ if __name__ == "__main__":
     # Translate subtitles using OpenAI API
     list_translate = []
     if OPENAI:
-        list_translate = process_translation(list_transcribe_clean)
-        # Final check to see if iterative translation succeeded
+        list_translate = process_translation(list_original=list_transcribe_clean, DEBUG=DEBUG)
+        # Check to see if translation succeeded
         if len(list_transcribe_clean) != len(list_translate):
             print("ERROR: Translation failed")
             sys.exit(-1)

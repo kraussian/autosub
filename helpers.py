@@ -48,8 +48,7 @@ def write_srt(transcript, translation, outfile:TextIO="output.srt", dry_run:bool
 
 # Function: Remove repetitive strings
 def remove_repetitions_and_sequences(input_string:str, char_repeats:int=6, seq_repeats:int=3, DEBUG=False) -> str:
-    if DEBUG:
-        print(f"Received input: {input_string}")
+    if DEBUG: print(f"Received input: {input_string}")
 
     # Remove invalid characters
     input_string = input_string.replace("�", "")
@@ -57,14 +56,12 @@ def remove_repetitions_and_sequences(input_string:str, char_repeats:int=6, seq_r
     # Handle single-character repetitions first
     single_char_pattern = rf'(.)\1{{{char_repeats},}}'
     result = re.sub(single_char_pattern, lambda m: m.group(1) * char_repeats, input_string)
-    if DEBUG:
-        print(f"Removed single-char sequences: {result}")
+    if DEBUG: print(f"Removed single-char sequences: {result}")
 
     # Handle repetitive multi-character sequences
     sequence_pattern = rf'((.+?)\2{{{seq_repeats},}})'
     result = re.sub(sequence_pattern, lambda m: m.group(2) * seq_repeats if len(m.group(2)) > 1 else m.group(0), result)
-    if DEBUG:
-        print(f"Removed multi-char sequences: {result}")
+    if DEBUG: print(f"Removed multi-char sequences: {result}")
 
     return result
 
