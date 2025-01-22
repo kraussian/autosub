@@ -1,20 +1,55 @@
 import os
-import re
-import ffmpeg  # Install with: pip install -U ffmpeg-python
-import pytubefix  # Install with: pip install -U pytubefix
+import numpy as np  # Install with: pip install -U numpy
+import regex as re  # Install with: pip install -U regex
+import av           # Install with: pip install -U av
+import wave
+import ffmpeg       # Install with: pip install -U ffmpeg-python
+import pytubefix    # Install with: pip install -U pytubefix
 from   typing import Iterator, TextIO
 
 # Function: Extract audio from video file and save to .WAV
-def extract_audio(filename:str, overwrite:bool=False, silent:bool=True, acodec:str="pcm_s16le", ac:int=1, ar:str="16k"):
-    outfile = '.'.join(os.path.basename(filename).split('.')[:-1]) + '.wav'
+def extract_audio(infile:str, overwrite:bool=False, silent:bool=True, channels:int=1, sample_rate:int=16000):
+    outfile = '.'.join(os.path.basename(infile).split('.')[:-1]) + '.wav'
     if os.path.exists(outfile) and not overwrite:
         print(f"    Audio file already exists. To overwrite, pass overwrite=True")
     else:
-        print(f"Extracting audio as: {outfile} (codec: {acodec}, {ac} channels @{ar}Hz)")
-        ffmpeg.input(filename).output(
-            outfile,
-            acodec=acodec, ac=ac, ar=ar
-        ).run(quiet=silent, overwrite_output=True)
+        print(f"Extracting audio as: {outfile} ({channels} channel(s) @{sample_rate}Hz)")
+
+        # Open the input video file
+        container = av.open(infile)
+
+        # Find the audio stream
+        audio_stream = next((stream for stream in container.streams if stream.type == 'audio'), None)
+
+        if not audio_stream:
+            raise ValueError("No audio stream found in the input file.")
+
+        # Open a wave file for output
+        with wave.open(outfile, 'wb') as wav_file:
+            # Set wave file parameters based on the audio stream
+            wav_file.setnchannels(channels)
+            wav_file.setsampwidth(2)  # 16-bit audio
+            wav_file.setframerate(sample_rate)
+
+            # Resample and convert audio frames
+            resampler = av.audio.resampler.AudioResampler(
+                format="s16",
+                layout="mono" if channels == 1 else "stereo",
+                rate=sample_rate
+            )
+
+            # Decode audio frames and write to the wave file
+            for packet in container.demux(audio_stream):
+                for frame in packet.decode():
+                    # Resample the audio frame
+                    resampled_frames = resampler.resample(frame)
+
+                    # Convert the frame to raw PCM data
+                    for resampled_frame in resampled_frames:
+                        pcm_data = resampled_frame.to_ndarray().astype(np.int16).tobytes()
+                        wav_file.writeframes(pcm_data)
+
+    # Return filename of extracted Waveform
     return outfile
 
 # Function: Format timestamp for SRT
