@@ -76,7 +76,7 @@ Full speech example [on YouTube](https://youtu.be/-3USli_2nbA)
 
 ## Example: Transcribe + Translate Non-English Speech
 
-Let's try with non-English speech, taking a Japanese narration from [Mitsue Links](https://www.mitsue.co.jp/english/service/audio_and_video/audio_production/narrators_sample.html). Asuka Yokoyama's `Sample 1 (38sec.)` was used in this example.
+For this example, let's try with non-English speech in MP3 audio file taking a Japanese narration from [Mitsue Links](https://www.mitsue.co.jp/english/service/audio_and_video/audio_production/narrators_sample.html) as the sample. Asuka Yokoyama's `Sample 1 (38sec.)` was used in this example.
 
 Command: `python autosub.py 01.mp3 --openai`
 
@@ -84,4 +84,4 @@ The `--openai` option was used to show the original Japanese transcription as we
 
 Here's what the output looks like:
 
-![sample_japanese](https://github.com/user-attachments/assets/73b40e84-0eec-4edc-ad3b-c61cf5173b6d)
+![sample_japanese](https://github.com/user-attachments/assets/2a257b0c-a3f4-48d2-824d-b41d2a27cfae)
