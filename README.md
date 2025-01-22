@@ -10,12 +10,13 @@ There are two versions of AutoSub:
 ## Usage Instructions
 
 ```shell
-usage: autosub.py [-h] [-l LANGUAGE] [-t] [-o] [-k] filename
+usage: autosub.py [-h] [-l LANGUAGE] [-t] [-o] [--beamsize BEAMSIZE] [--threshold THRESHOLD] [--debug] [--keep]
+                  filename
 
 AutoSub automatically extracts subtitles from video or audio files using OpenAI Whisper
 
 positional arguments:
-  filename              Path and name of the video file to extract from, or URL of YouTube video
+  filename              Path and name of the video or audio file to extract from, or URL of YouTube video
 
 options:
   -h, --help            show this help message and exit
@@ -23,7 +24,11 @@ options:
                         Override language of video file, e.g. en, ja, ko, zh
   -t, --translate       Automatically translate subtitles to English
   -o, --openai          Use OpenAI API to translate subtitles, keeping transcription
-  -k, --keep            Keep WAV file created during process
+  --beamsize BEAMSIZE   Override the beam size used by Whisper
+  --threshold THRESHOLD
+                        Override the threshold used for VAD
+  --debug               Add debug logs to program execution
+  --keep                Keep WAV file created during process
 ```
 
 ## Translating with OpenAI
