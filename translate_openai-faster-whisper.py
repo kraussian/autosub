@@ -40,7 +40,7 @@ def process_llm(user_input:str, conversation_history:list=[], model:str=MODEL, t
     if response:
         final_response = response.choices[0].message.content.strip()
         # Clean up artifacts in text
-        final_response = re.sub(r"---.*?---", "", final_response).replace("`", "").replace("---", "").strip()
+        final_response = re.sub(r"---.*?---", "", final_response).replace("`", "").replace("---", "").replace("BEGIN TEXT", "").replace("END TEXT", "").strip()
         conversation_history.append(
             {"role": "assistant", "content": final_response}
         )
@@ -81,7 +81,7 @@ def process_translation(list_original:list=[], DEBUG:bool=False) -> list:
         if DEBUG:
             print(f"    Translating chunk of size {len(chunk_text)}")
         terminate = False
-        prompt = f"{"".join(base_prompt)}---BEGIN TEXT---\n{chunk_text}\n---END TEXT---"
+        prompt = f'{"".join(base_prompt)}---BEGIN TEXT---\n{chunk_text}\n---END TEXT---'
         RETRIES = 10
         for attempt in range(1, RETRIES+1):
             res = process_llm(user_input=prompt, conversation_history=[])
@@ -112,6 +112,7 @@ def process_translation(list_original:list=[], DEBUG:bool=False) -> list:
                 print("    Chunk translation failed. Terminating loop")
                 terminate = True
                 break
+            if DEBUG: print(f"    Translated: {item_text}")
             list_translate.append({"text": item_text})
         if terminate:
             break

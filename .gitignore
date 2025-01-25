@@ -9,6 +9,9 @@
 *.gif
 *.pkl
 *.llc
+*.json
+*.tsv
+*.vtt
 
 # Test scripts
 test*.py

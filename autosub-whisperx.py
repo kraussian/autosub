@@ -1,3 +1,11 @@
+# NOTE: Installation instructions on Windows
+# py -3.10 -m venv venv
+# .\venv\Scripts\Activate
+# pip install git+https://github.com/m-bain/whisperx.git
+# pip install torch==2.3.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu118
+# pip install numpy<2
+# pip install python-dotenv regex av pytubefix openai
+
 import argparse
 
 if __name__ == "__main__":
@@ -10,6 +18,7 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--translate', help="Automatically translate subtitles to English", action='store_true')
     parser.add_argument('-o', '--openai', help="Use OpenAI API to translate subtitles, keeping transcription", action='store_true')
     parser.add_argument('--beamsize', help="Override the beam size used by Whisper")
+    parser.add_argument('--noprev', help="Override the condition_on_previous_text parameter to False", action='store_true')
     parser.add_argument('--threshold', help="Override the threshold used for VAD")
     parser.add_argument('--debug', help="Add debug logs to program execution", action='store_true')
     parser.add_argument('--keep', help="Keep WAV file created during process", action='store_true')
@@ -21,11 +30,18 @@ if __name__ == "__main__":
     import sys
     import pickle
     import shutil
-    from   faster_whisper import WhisperModel  # Install with: pip install faster-whisper
+    import whisperx  # Install with: pip install git+https://github.com/m-bain/whisperx.git
+    import torch     # Install with: pip install torch==2.3.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu118
+    import gc
+    import dotenv
     # Import custom modules
     from   translate_openai import process_translation
     from   helpers import extract_audio, get_youtube_video, write_srt
     from   helpers import adjust_segments, cleanup_text, remove_dup_segments, adjust_duration
+
+    # Load environment variables
+    dotenv.load_dotenv()
+    HF_TOKEN = os.getenv("HF_TOKEN", "")
 
     # Set debug mode
     DEBUG = args.debug
@@ -41,12 +57,18 @@ if __name__ == "__main__":
         else:
             print(f"Processing video: {os.path.basename(filename)}")
 
-    audio_file = extract_audio(filename)
+    # Define WhisperX parameters
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    compute_type = "float16"
+    batch_size = 16
     # NOTE: Available Whisper models: tiny, base, small, medium, large-v1, large-v2, large-v3, large-v3-turbo
     model_name = 'large-v3'
     print(f"Loading Whisper model: {model_name}")
-    # Load Whisper model to run on GPU with FP16
-    model = WhisperModel(model_name, device="cuda", compute_type="float16")
+    model = whisperx.load_model(whisper_arch=model_name, device=device, compute_type=compute_type)
+
+    # Load audio file
+    audio_file = extract_audio(filename)
+    audio = whisperx.load_audio(audio_file)
 
     # Set default Whisper options
     options = {"task": "transcribe"}
@@ -63,38 +85,30 @@ if __name__ == "__main__":
             options['task'] = "translate"
 
     print("Extracting subtitles")
-    # Define Whisper and VAD parameters
-    BEAMSIZE = int(args.beamsize) if args.beamsize else 10
-    VAD_THRESHOLD = float(args.threshold) if args.threshold else 0.40
-    WORD_TIMESTAMPS = True
-    vad_params = dict(
-        threshold=VAD_THRESHOLD,       # Default 0.5. Speech threshold. Silero VAD outputs speech probabilities for each audio chunk, probabilities ABOVE this value are considered as SPEECH.
-        #neg_threshold=0.15,           # Default None. Silence threshold for determining the end of speech. If a probability is lower than neg_threshold, it is always considered silence.
-        #min_speech_duration_ms=0,     # Default 0. Final speech chunks shorter min_speech_duration_ms (in milliseconds) are thrown out
-        #max_speech_duration_s=1.0,    # Default float("inf"). Chunks longer than max_speech_duration_s (in seconds) will be split at the timestamp of the last silence that lasts more than 100ms (if any)
-        #min_silence_duration_ms=100,  # Default 2000. In the end of each speech chunk wait for min_silence_duration_ms (in milliseconds) before separating it
-        #speech_pad_ms=0,              # Default 400. Final speech chunks are padded by speech_pad_ms each side
-    )
-    segments, info = model.transcribe(
-        audio=audio_file,
-        language=options.get("language"),
+    result = model.transcribe(
+        audio=audio,
+        batch_size=batch_size,
+        language=options.get("language", None),
         task=options.get("task"),
-        beam_size=BEAMSIZE,
-        log_progress=False,
-        #temperature=0.0,
-        #condition_on_previous_text=False,
-        vad_filter=True,  # The library integrates the Silero VAD model to filter out parts of the audio without speech
-        vad_parameters=vad_params,  # Customize VAD parameters
-        word_timestamps=WORD_TIMESTAMPS,  # Retrieve timestamps for each word
     )
-    print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
+
+    # Align Whisper output
+    model_a, metadata = whisperx.load_align_model(language_code=result.get("language"), device=device)
+    result = whisperx.align(result.get("segments"), model_a, metadata, audio, device, return_char_alignments=False)
+
+    # Assign speaker labels
+    diarize_model = whisperx.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
+    # add min/max number of speakers if known
+    diarize_segments = diarize_model(audio)
+    # diarize_model(audio, min_speakers=min_speakers, max_speakers=max_speakers)
+    result = whisperx.assign_word_speakers(diarize_segments, result)
 
     # NOTE: segments is a generator so the transcription only starts when you iterate over it
     # The transcription can be run to completion by gathering the segments in a list or a for loop
     # segments = list(segments)  # The transcription will actually run here.
     print("Transcribing text")
     list_transcribe = []
-    for segment in segments:
+    for segment in result.get("segments"):
         print(f"    {segment.start} --> {segment.end} {segment.text}")
         #if WORD_TIMESTAMPS:
         #    for word in segment.words:
