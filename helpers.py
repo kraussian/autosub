@@ -23,6 +23,9 @@ def extract_audio(infile:str, overwrite:bool=False, silent:bool=True, channels:i
         if not audio_stream:
             raise ValueError("No audio stream found in the input file.")
 
+        # Get duration of audio file
+        audio_duration = float(audio_stream.duration * audio_stream.time_base)
+
         # Open a wave file for output
         with wave.open(outfile, 'wb') as wav_file:
             # Set wave file parameters based on the audio stream
@@ -48,8 +51,8 @@ def extract_audio(infile:str, overwrite:bool=False, silent:bool=True, channels:i
                         pcm_data = resampled_frame.to_ndarray().astype(np.int16).tobytes()
                         wav_file.writeframes(pcm_data)
 
-    # Return filename of extracted Waveform
-    return outfile
+    # Return filename and duration of extracted Waveform
+    return outfile, audio_duration
 
 # Function: Format timestamp for SRT
 def format_timestamp(seconds:float, always_include_hours:bool=False) -> str:

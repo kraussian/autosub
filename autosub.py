@@ -46,7 +46,7 @@ if __name__ == "__main__":
         else:
             print(f"Processing video: {os.path.basename(filename)}")
 
-    audio_file = extract_audio(filename)
+    audio_file, audio_duration = extract_audio(filename)
     # NOTE: Available Whisper models
     # Base models: tiny, base, small, medium, large-v1, large-v2, large-v3, large-v3-turbo
     # Distilled models: distil-large-v2, distil-large-v3
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     TEMPERATURE = float(args.temperature) if args.temperature else 0.2
     BEAMSIZE = int(args.beamsize) if args.beamsize else 10
     PREVTEXT = not args.noprev
-    VAD_THRESHOLD = float(args.threshold) if args.threshold else 0.35
+    VAD_THRESHOLD = float(args.threshold) if args.threshold else 0.3
     WORD_TIMESTAMPS = True
     print(f"Using options: Temperature {TEMPERATURE}, Beam Size {BEAMSIZE}, Prev-Text {PREVTEXT}, VAD Threshold {VAD_THRESHOLD}")
 
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     # End timer and calculation time taken
     time_end = time.perf_counter()
     time_elapsed = time_end - time_start
-    print(f"Whisper transcription completed in {time_elapsed:.2f} seconds.")
+    print(f"Input file of {audio_duration:.2f} seconds transcribed in {time_elapsed:.2f} seconds.")
 
     # Store transcription as Pickle in debug mode
     if DEBUG:
