@@ -68,13 +68,13 @@ def format_timestamp(seconds:float, always_include_hours:bool=False) -> str:
 def write_srt(transcript, translation, outfile:TextIO="output.srt", dry_run:bool=False):
     for i, segment in enumerate(transcript, start=1):
         output_text = f"{i}\n"
-        output_text += f"{format_timestamp(segment.start, always_include_hours=True)} --> "
-        output_text += f"{format_timestamp(segment.end, always_include_hours=True)}\n"
+        output_text += f'{format_timestamp(segment["start"], always_include_hours=True)} --> '
+        output_text += f'{format_timestamp(segment["end"], always_include_hours=True)}\n'
         if len(translation) > 0:
-            output_text += f'<font color="#gray">{segment.text.strip().replace("-->", "->")}</font>\n'
-            output_text += f'{translation[i-1].get("text").strip().replace("-->", "->")}\n'
+            output_text += f'<font color="#gray">{segment["text"].strip().replace("-->", "->")}</font>\n'
+            output_text += f'{translation[i-1]["text"].strip().replace("-->", "->")}\n'
         else:
-            output_text += f'{segment.text.strip().replace("-->", "->")}\n'
+            output_text += f'{segment["text"].strip().replace("-->", "->")}\n'
         if dry_run:
             print(output_text, flush=True)
         else:
@@ -213,11 +213,11 @@ def adjust_segments(segments, lookahead_segments:int=3, max_sentence_length:int=
     return result_segments
 
 def cleanup_text(segment:dict) -> dict:
-    input_string = segment.text.strip()
+    input_string = segment["text"].strip()
     # Remove prefix "-" at start of lines
     input_string = re.sub(r"^- ", "", input_string, flags=re.MULTILINE)
     output_string = remove_repetitions_and_sequences(input_string)
-    segment.text = output_string
+    segment["text"] = output_string
     return segment
 
 def remove_dup_segments(segments):
@@ -231,18 +231,12 @@ def remove_dup_segments(segments):
     return result
 
 def adjust_duration(segment):
-    length_duration = round(float(segment.end) - float(segment.start), 2)
-    length_text = len(segment.text)
+    length_duration = round(float(segment["end"]) - float(segment["start"]), 2)
+    length_text = len(segment["text"])
     length_max = round(max(length_text / 3, 3), 2)
     if length_duration > length_max:
-        segment.end = round(float(segment.start) + length_max, 2)
-        print(f"    Shortened length: {round(float(segment.start), 2)} --> {round(float(segment.end), 2)} ({length_duration} -> {length_max}) {segment.text}")
-    """
-    length_min = min(length_text / 4, 10)
-    if length_duration < length_min:
-        segment["end"] = float(segment.get("start")) + length_min
-        print(f"Increased length: {segment.get("start")} --> {segment.get("end")} ({length_duration} -> {length_min}) {segment.get("text")}")
-    """
+        segment["end"] = round(float(segment["start"]) + length_max, 2)
+        print(f'    Shortened length: {round(float(segment["start"]), 2)} --> {round(float(segment["end"]), 2)} ({length_duration} -> {length_max}) {segment["text"]}')
     return segment
 
 def get_youtube_video(url:str) -> str:
