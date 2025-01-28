@@ -73,7 +73,7 @@ if __name__ == "__main__":
     TEMPERATURE = float(args.temperature) if args.temperature else 0.2
     BEAMSIZE = int(args.beamsize) if args.beamsize else 10
     PREVTEXT = not args.noprev
-    VAD_THRESHOLD = float(args.threshold) if args.threshold else 0.3
+    VAD_THRESHOLD = float(args.threshold) if args.threshold else 0.35
     WORD_TIMESTAMPS = True
     print(f"Using options: Temperature {TEMPERATURE}, Beam Size {BEAMSIZE}, Prev-Text {PREVTEXT}, VAD Threshold {VAD_THRESHOLD}")
 
@@ -92,17 +92,18 @@ if __name__ == "__main__":
         audio=audio_file,
         language=options.get("language"),
         task=options.get("task"),
-        beam_size=BEAMSIZE,
+        beam_size=BEAMSIZE,       # Default 5. Beam size to use for decoding.
+        #best_of=2,               # Default 5. Number of candidates when sampling with non-zero temperature.
+        patience=2,               # Default 1. Beam search patience factor.
+        #repetition_penalty=1.5,  # Default 1. Penalty applied to the score of previously generated tokens (set > 1 to penalize)
+        #no_repeat_ngram_size=2,  # Default 0. Prevent repetitions of ngrams with this size (set 0 to disable)
         log_progress=False,
-        temperature=TEMPERATURE,
-        #compression_ratio_threshold=2.2,  # Default 2.4
-        #log_prob_threshold=-0.7,  # Default -1
-        #no_speech_threshold=0.1,  # Default 0.6
+        temperature=TEMPERATURE,  # Temperature for sampling. If a list or tuple is passed, only the first value is used
         condition_on_previous_text=PREVTEXT,
         #suppress_tokens=[], # Default [-1]
+        word_timestamps=WORD_TIMESTAMPS,  # Retrieve timestamps for each word
         vad_filter=True,  # The library integrates the Silero VAD model to filter out parts of the audio without speech
         vad_parameters=vad_params,  # Customize VAD parameters
-        word_timestamps=WORD_TIMESTAMPS,  # Retrieve timestamps for each word
     )
     print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
 
@@ -127,7 +128,7 @@ if __name__ == "__main__":
     # HACK: Remove repetitions caused by Whisper hallucination
     list_transcribe_clean = [cleanup_text(item) for item in list_transcribe]
     # HACK: Remove duplicate segments caused by Whisper hallucination
-    list_transcribe_clean = remove_dup_segments(list_transcribe_clean)
+    #list_transcribe_clean = remove_dup_segments(list_transcribe_clean)
     # HACK: Shorten long durations caused by Whisper hallucination
     list_transcribe_clean = [adjust_duration(item) for item in list_transcribe_clean]
     if len(list_transcribe) != len(list_transcribe_clean):
