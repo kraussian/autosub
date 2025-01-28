@@ -70,10 +70,10 @@ if __name__ == "__main__":
             options['task'] = "translate"
 
     # Set Whisper and VAD parameters
-    TEMPERATURE = float(args.temperature) if args.temperature else 0.2
+    TEMPERATURE = float(args.temperature) if args.temperature else 0
     BEAMSIZE = int(args.beamsize) if args.beamsize else 10
     PREVTEXT = not args.noprev
-    VAD_THRESHOLD = float(args.threshold) if args.threshold else 0.35
+    VAD_THRESHOLD = float(args.threshold) if args.threshold else 0.3
     WORD_TIMESTAMPS = True
     print(f"Using options: Temperature {TEMPERATURE}, Beam Size {BEAMSIZE}, Prev-Text {PREVTEXT}, VAD Threshold {VAD_THRESHOLD}")
 
@@ -94,8 +94,8 @@ if __name__ == "__main__":
         task=options.get("task"),
         beam_size=BEAMSIZE,       # Default 5. Beam size to use for decoding.
         #best_of=2,               # Default 5. Number of candidates when sampling with non-zero temperature.
-        patience=2,               # Default 1. Beam search patience factor.
-        #repetition_penalty=1.5,  # Default 1. Penalty applied to the score of previously generated tokens (set > 1 to penalize)
+        #patience=2,              # Default 1. Beam search patience factor.
+        repetition_penalty=1.5,   # Default 1. Penalty applied to the score of previously generated tokens (set > 1 to penalize)
         #no_repeat_ngram_size=2,  # Default 0. Prevent repetitions of ngrams with this size (set 0 to disable)
         log_progress=False,
         temperature=TEMPERATURE,  # Temperature for sampling. If a list or tuple is passed, only the first value is used
@@ -112,8 +112,18 @@ if __name__ == "__main__":
     # segments = list(segments)  # The transcription will actually run here.
     print("Transcribing text")
     list_transcribe = []
+    count_duplicates = 0
+    prev_segment = ""
     for segment in segments:
         print(f"    {segment.start} --> {segment.end} {segment.text}")
+        if prev_segment == segment.text:
+            count_duplicates += 1
+        else:
+            count_duplicates = 0
+        if count_duplicates > 3:
+            print("    Whisper hallucinating with too many duplicates")
+            sys.exit(-1)
+        prev_segment = segment.text
         #if WORD_TIMESTAMPS:
         #    for word in segment.words:
         #        print(f"    [{round(word.start, 2)} -> {round(word.end, 2)}] {word.word}")
