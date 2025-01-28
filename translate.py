@@ -56,7 +56,7 @@ def estimate_token_count(prompt:str=""):
     return prompt_tokens + response_tokens
 
 def process_translation(list_original:list=[], DEBUG:bool=False) -> list:
-    def split_chunks(segments:list=[], chunk_size:int=20):
+    def split_chunks(segments:list=[], chunk_size:int=10):
         if chunk_size <= 0:
             raise ValueError("Chunk size must be greater than 0.")
         return [segments[i:i + chunk_size] for i in range(0, len(segments), chunk_size)]
@@ -68,11 +68,15 @@ def process_translation(list_original:list=[], DEBUG:bool=False) -> list:
     text_original = text_original.strip()
     # Define the prompt structure
     base_prompt = (
-        "Translate the following sentences to English while keeping the numbering, structure and line breaks intact. ",
-        "Make sure each line corresponds to the same number in the original text. ",
-        "Do not skip or merge any lines. ",
-        "Ensure the number of lines of the translation exactly match the number of lines in the original text. ",
-        "Provide the translation only.\n",
+        "You are a professional translator. ",
+        "Your task is to translate non-English text into fluent English while strictly adhering to the following guidelines:\n",
+        "1. **Important**: Translate the meaning of the text into English. Do not romanize or transliterate the text.\n",
+        "2. Preserve the original numbering, structure, and line breaks exactly as they appear in the input.\n",
+        "3. Ensure each line in the translation corresponds to the same number in the original text.\n",
+        "4. **Critical** The number of lines in the translation must exactly match the number of lines in the original text. ",
+        "If the input has 20 lines, the output must also have 20 lines.\n",
+        "5. Do not modify the format of the line indicators (e.g., keep them as `[1]`, `[2]`, etc.).\n",
+        "6. Provide the translation only, without any additional commentary or explanations.\n",
     )
     chunks = split_chunks(text_original.splitlines())
     print(f"Splitting into {len(chunks)} chunks for translation")
@@ -81,7 +85,7 @@ def process_translation(list_original:list=[], DEBUG:bool=False) -> list:
         if DEBUG:
             print(f"    Translating chunk of size {len(chunk_text)}")
         terminate = False
-        prompt = f'{"".join(base_prompt)}---BEGIN TEXT---\n{chunk_text}\n---END TEXT---'
+        prompt = f'{"".join(base_prompt)}\n---BEGIN TEXT---\n{chunk_text}\n---END TEXT---'
         RETRIES = 10
         for attempt in range(1, RETRIES+1):
             res = process_llm(user_input=prompt, conversation_history=[])
@@ -103,7 +107,7 @@ def process_translation(list_original:list=[], DEBUG:bool=False) -> list:
             sys.exit(-1)
         for item in list_res:
             try:
-                regex_result = re.findall(r"\[\w+\] (.*)", item.strip())
+                regex_result = re.findall(r".*?\[\w+\].*?[ ]+(.*)", item.strip())
                 item_text = regex_result[0] if len(regex_result) > 0 else item.strip()
                 # Capitalize first word of each sentence if it's not already capitalized
                 if not item_text[0].isupper():
