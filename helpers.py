@@ -7,7 +7,7 @@ import pytubefix    # Install with: pip install -U pytubefix
 from   typing import Iterator, TextIO
 
 # Function: Extract audio from video file and save to .WAV
-def extract_audio(infile:str, overwrite:bool=False, silent:bool=True, channels:int=1, sample_rate:int=16000):
+def extract_audio(infile:str, overwrite:bool=True, silent:bool=True, channels:int=1, sample_rate:int=16000):
     outfile = '.'.join(os.path.basename(infile).split('.')[:-1]) + '.wav'
     if os.path.exists(outfile) and not overwrite:
         print(f"    Audio file already exists. To overwrite, pass overwrite=True")
