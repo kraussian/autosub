@@ -11,6 +11,7 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--language', help="Override language of video file, e.g. en, ja, ko, zh")
     parser.add_argument('-t', '--translate', help="Automatically translate subtitles to English", action='store_true')
     parser.add_argument('-o', '--openai', help="Use OpenAI API to translate subtitles, keeping transcription", action='store_true')
+    parser.add_argument('--model', help="Override the Whisper model used")
     parser.add_argument('--temperature', help="Override the temperature used by Whisper")
     parser.add_argument('--beamsize', help="Override the beam size used by Whisper")
     parser.add_argument('--noprev', help="Override the condition_on_previous_text parameter to False", action='store_true')
@@ -26,6 +27,7 @@ if __name__ == "__main__":
     import pickle
     import shutil
     import time
+    import gc
     from   faster_whisper import WhisperModel  # Install with: pip install faster-whisper
     # Import custom modules
     from   translate import process_translation
@@ -49,8 +51,15 @@ if __name__ == "__main__":
     audio_file, audio_duration = extract_audio(filename)
     # NOTE: Available Whisper models
     # Base models: tiny, base, small, medium, large-v1, large-v2, large-v3, large-v3-turbo
-    # Distilled models: distil-large-v2, distil-large-v3
-    model_name = 'large-v2'
+    whisper_models = ['tiny', 'base', 'small', 'medium', 'large-v1', 'large-v2', 'large-v3', 'large-v3-turbo']
+    DEFAULT_MODEL = 'large-v2'
+    if args.model:
+        model_name = args.model
+        if model_name not in whisper_models:
+            print(f"{model_name} is not a valid Whisper model. Defaulting to {DEFAULT_MODEL}")
+            model_name = DEFAULT_MODEL
+    else:
+        model_name = DEFAULT_MODEL
     print(f"Loading Whisper model: {model_name}")
     # Load Whisper model to run on GPU with FP16
     model = WhisperModel(model_name, device="cuda", compute_type="float16")
@@ -115,6 +124,8 @@ if __name__ == "__main__":
     count_duplicates = 0
     prev_segment = ""
     for segment in segments:
+        if info.language in ["ja"]:
+            segment.text = segment.text.replace(" ", "")  # Remove additional spaces
         print(f"    {segment.start} --> {segment.end} {segment.text}")
         if prev_segment == segment.text:
             count_duplicates += 1
@@ -129,6 +140,10 @@ if __name__ == "__main__":
         #        print(f"    [{round(word.start, 2)} -> {round(word.end, 2)}] {word.word}")
         list_transcribe.append(segment)
     print(f"Transcribed {len(list_transcribe)} segments")
+    # Unload Whisper model
+    model.model.unload_model()
+    del model
+    gc.collect()
 
     # Adjust segments to merge incomplete sentences and split at punctuation marks
     #print("Post-processing segments")
@@ -174,7 +189,6 @@ if __name__ == "__main__":
         print(f"Translation completed in {time_elapsed:.2f} seconds.")
 
     srt_file = outfile = '.'.join(os.path.basename(filename).split('.')[:-1]) + '.srt'
-    # Test: write_srt(list_transcribe, list_translate, dry_run=True)
     with open(srt_file, "w", encoding="utf-8") as srt:
         write_srt(list_transcribe_clean, list_translate, outfile=srt)
     print(f"Wrote subtitle file to: {srt_file}")
