@@ -62,7 +62,7 @@ def process_translation(list_original:list=[], DEBUG:bool=False) -> list:
             raise ValueError("Chunk size must be greater than 0.")
         return [segments[i:i + chunk_size] for i in range(0, len(segments), chunk_size)]
 
-    CHUNK_SIZE = 20
+    CHUNK_SIZE = 10
     list_translate = []
     text_original = ""
     for i, segment in enumerate(list_original):
@@ -71,16 +71,16 @@ def process_translation(list_original:list=[], DEBUG:bool=False) -> list:
     # Define the prompt structure
     base_prompt = (
         "You are a professional translator. Translate the text line-by-line following these STRICT RULES:\n",
-        "  1. **LINE LOCK** - Never merge lines. Each Japanese line becomes exactly one English line, even if mid-sentence.\n",
+        "  1. **LINE LOCK** - Never merge lines. Each line of the original text becomes exactly one English line, even if mid-sentence.\n",
         "  2. **POSITION LOCK** - Maintain original line numbers. [446] must stay [446], [447] stays [447], etc.\n",
-        "  3. **SPLIT TRANSLATION** - If Japanese lines form one sentence, split the English translation across lines using fragments:\n",
+        "  3. **SPLIT TRANSLATION** - If lines from original text form one sentence, split the English translation across lines using fragments:\n",
         "    Example Japanese:\n",
         "      [1] 違う幸せもあることに\n",
         "      [2] 気づいたんだ\n",
         "    Example English:\n",
         "      [1] There exist different types of happiness\n",
         "      [2] I have come to realize\n\n",
-        f"  4. **COUNT VERIFICATION** - Final output MUST have exactly {CHUNK_SIZE} lines. Check twice before responding.\n",
+        f"  4. **COUNT VERIFICATION** - Final output MUST have exactly {CHUNK_SIZE} lines. Check twice before responding. If your output has fewer than {CHUNK_SIZE} lines, correct your mistake and provide exactly {CHUNK_SIZE} lines.\n",
         f"  5. **STRICT PROHIBITION** - MERGING LINES WILL RESULT IN MEANING LOSS. PRESERVE ALL {CHUNK_SIZE} LINES.\n",
         "  6. Provide the translation only, without any additional commentary or explanations.\n"
     )
