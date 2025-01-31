@@ -52,7 +52,7 @@ if __name__ == "__main__":
     # NOTE: Available Whisper models
     # Base models: tiny, base, small, medium, large-v1, large-v2, large-v3, large-v3-turbo
     whisper_models = ['tiny', 'base', 'small', 'medium', 'large-v1', 'large-v2', 'large-v3', 'large-v3-turbo']
-    DEFAULT_MODEL = 'large-v2'
+    DEFAULT_MODEL = 'large-v3'
     if args.model:
         model_name = args.model
         if model_name not in whisper_models:
