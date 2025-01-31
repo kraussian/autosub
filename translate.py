@@ -41,6 +41,7 @@ def process_llm(user_input:str, conversation_history:list=[], model:str=MODEL, t
         final_response = response.choices[0].message.content.strip()
         # Clean up artifacts in text
         final_response = re.sub(r"---.*?---", "", final_response).replace("`", "").replace("---", "").replace("BEGIN TEXT", "").replace("END TEXT", "").strip()
+        final_response = '\n'.join(re.findall(r".*(\[.*)", final_response.replace("*", "").replace('"', "")))
         conversation_history.append(
             {"role": "assistant", "content": final_response}
         )
@@ -61,6 +62,7 @@ def process_translation(list_original:list=[], DEBUG:bool=False) -> list:
             raise ValueError("Chunk size must be greater than 0.")
         return [segments[i:i + chunk_size] for i in range(0, len(segments), chunk_size)]
 
+    CHUNK_SIZE = 20
     list_translate = []
     text_original = ""
     for i, segment in enumerate(list_original):
@@ -68,17 +70,21 @@ def process_translation(list_original:list=[], DEBUG:bool=False) -> list:
     text_original = text_original.strip()
     # Define the prompt structure
     base_prompt = (
-        "You are a professional translator. ",
-        "Your task is to translate non-English text into fluent English while strictly adhering to the following guidelines:\n",
-        "1. **Important**: Translate the meaning of the text into English. Do not romanize or transliterate the text.\n",
-        "2. Preserve the original numbering, structure, and line breaks exactly as they appear in the input.\n",
-        "3. Ensure each line in the translation corresponds to the same number in the original text.\n",
-        "4. **Critical** The number of lines in the translation must exactly match the number of lines in the original text. ",
-        "If the input has 20 lines, the output must also have 20 lines.\n",
-        "5. Do not modify the format of the line indicators (e.g., keep them as `[1]`, `[2]`, etc.).\n",
-        "6. Provide the translation only, without any additional commentary or explanations.\n",
+        "You are a professional translator. Translate the text line-by-line following these STRICT RULES:\n",
+        "  1. **LINE LOCK** - Never merge lines. Each Japanese line becomes exactly one English line, even if mid-sentence.\n",
+        "  2. **POSITION LOCK** - Maintain original line numbers. [446] must stay [446], [447] stays [447], etc.\n",
+        "  3. **SPLIT TRANSLATION** - If Japanese lines form one sentence, split the English translation across lines using fragments:\n",
+        "    Example Japanese:\n",
+        "      [1] 違う幸せもあることに\n",
+        "      [2] 気づいたんだ\n",
+        "    Example English:\n",
+        "      [1] There exist different types of happiness\n",
+        "      [2] I have come to realize\n\n",
+        f"  4. **COUNT VERIFICATION** - Final output MUST have exactly {CHUNK_SIZE} lines. Check twice before responding.\n",
+        f"  5. **STRICT PROHIBITION** - MERGING LINES WILL RESULT IN MEANING LOSS. PRESERVE ALL {CHUNK_SIZE} LINES.\n",
+        "  6. Provide the translation only, without any additional commentary or explanations.\n"
     )
-    chunks = split_chunks(text_original.splitlines())
+    chunks = split_chunks(segments=text_original.splitlines(), chunk_size=CHUNK_SIZE)
     print(f"Splitting into {len(chunks)} chunks for translation")
     for chunk in tqdm.tqdm(iterable=chunks, desc="Translating", total=len(chunks)):
         chunk_text = "\n".join(chunk)
